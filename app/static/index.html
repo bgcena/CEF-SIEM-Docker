@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Akamai SIEM Collector</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #fff; --text: #1c2330; --muted: #5d6778; --border: #dde1e7;
+    --accent: #0a66c2; --accent-text: #fff; --ok: #1b7f3b; --warn: #a15c00; --bad: #b42318;
+    --code: #f0f2f5; --row-hover: #f3f6fb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #11151c; --panel: #1a2029; --text: #e3e7ee; --muted: #98a2b3; --border: #2c3440;
+      --accent: #4c9bec; --accent-text: #0b1220; --ok: #4ec27a; --warn: #e3a33b; --bad: #f07167;
+      --code: #0f1319; --row-hover: #222a35;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); }
+  .pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .pill.ok { color: var(--ok); } .pill.bad { color: var(--bad); } .pill.idle { color: var(--muted); }
+  main { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 16px; padding: 16px 20px; }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; padding: 12px 16px; } }
+  section { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; min-width: 0; }
+  section + section { margin-top: 16px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; }
+  h3 { font-size: 13px; margin: 14px 0 6px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
+  input, select, textarea { width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+  textarea { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .check { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--text); font-size: 13px; }
+  .check input { width: auto; }
+  details { margin-top: 10px; } summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  button { padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font: inherit; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  .msg { margin-top: 10px; font-size: 13px; min-height: 1em; word-break: break-word; }
+  .msg.ok { color: var(--ok); } .msg.bad { color: var(--bad); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+  .stat { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 12px; color: var(--muted); }
+  .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  .toolbar input[type=search] { flex: 1; min-width: 160px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+  .tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); }
+  .tabs button.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  .table-wrap { overflow: auto; max-height: 62vh; border: 1px solid var(--border); border-radius: 6px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: top; }
+  th { position: sticky; top: 0; background: var(--panel); font-weight: 600; color: var(--muted); z-index: 1; }
+  tbody tr.ev { cursor: pointer; } tbody tr.ev:hover { background: var(--row-hover); }
+  td.trunc { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+  .act { font-weight: 600; } .act.deny, .act.mitigate { color: var(--bad); } .act.alert, .act.detect { color: var(--warn); }
+  .detail td { white-space: normal; background: var(--code); }
+  .kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 14px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  .kv div:nth-child(odd) { color: var(--muted); }
+  .kv div { word-break: break-all; white-space: pre-wrap; }
+  pre { background: var(--code); border: 1px solid var(--border); border-radius: 6px; padding: 10px; overflow: auto; max-height: 62vh; font-size: 12px; margin: 0; white-space: pre-wrap; word-break: break-all; }
+  .empty { padding: 30px; text-align: center; color: var(--muted); }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Akamai SIEM Collector</h1>
+  <span class="sub" id="version">CEF Connector</span>
+  <span class="pill idle" id="runPill">Stopped</span>
+</header>
+
+<main>
+  <div>
+    <section>
+      <h2>SIEM API credentials</h2>
+      <details>
+        <summary>Paste .edgerc section</summary>
+        <textarea id="edgerc" rows="6" placeholder="[default]&#10;client_secret = ...&#10;host = akab-xxxx.luna.akamaiapis.net&#10;access_token = akab-...&#10;client_token = akab-..."></textarea>
+        <div class="buttons"><button type="button" id="parseEdgerc">Fill fields</button></div>
+      </details>
+      <form id="settings" autocomplete="off">
+        <label for="base_url">Host (base URL)</label>
+        <input id="base_url" name="base_url" placeholder="akab-xxxx.luna.akamaiapis.net">
+        <label for="client_token">Client token</label>
+        <input id="client_token" name="client_token" placeholder="akab-...">
+        <label for="client_secret">Client secret</label>
+        <input id="client_secret" name="client_secret" type="password" placeholder="Leave blank to keep saved value">
+        <label for="access_token">Access token</label>
+        <input id="access_token" name="access_token" placeholder="akab-...">
+        <label for="config_ids">Security configuration ID(s)</label>
+        <input id="config_ids" name="config_ids" placeholder="12345;67890">
+
+        <h3>Forward to SIEM / syslog</h3>
+        <label class="check"><input type="checkbox" id="forward_enabled" name="forward_enabled"> Forward CEF events to a remote listener</label>
+        <div class="row">
+          <div><label for="forward_host">Host</label><input id="forward_host" name="forward_host"></div>
+          <div><label for="forward_port">Port</label><input id="forward_port" name="forward_port" type="number" min="1" max="65535"></div>
+        </div>
+        <label for="forward_protocol">Protocol</label>
+        <select id="forward_protocol" name="forward_protocol"><option>TCP</option><option>UDP</option></select>
+        <div class="hint">Events are always shown here; forwarding is in addition.</div>
+
+        <details>
+          <summary>Advanced connector settings</summary>
+          <div class="row">
+            <div><label for="refresh_period">Refresh period (s)</label><input id="refresh_period" name="refresh_period" type="number" min="1"></div>
+            <div><label for="limit">Limit per pull</label><input id="limit" name="limit" type="number" min="1"></div>
+          </div>
+          <label class="check"><input type="checkbox" id="timebased" name="timebased"> Time based pull (instead of offset)</label>
+          <div class="row">
+            <div><label for="timebased_from">From (epoch s)</label><input id="timebased_from" name="timebased_from" inputmode="numeric"></div>
+            <div><label for="timebased_to">To (epoch s, optional)</label><input id="timebased_to" name="timebased_to" inputmode="numeric"></div>
+          </div>
+          <div class="buttons"><button type="button" data-ago="3600">From = 1h ago</button><button type="button" data-ago="43200">From = 12h ago</button></div>
+          <div class="hint">The SIEM API keeps 12 hours of data.</div>
+          <div class="row">
+            <div><label for="proxy_host">Proxy host</label><input id="proxy_host" name="proxy_host"></div>
+            <div><label for="proxy_port">Proxy port</label><input id="proxy_port" name="proxy_port" inputmode="numeric"></div>
+          </div>
+          <div class="row">
+            <div><label for="consumer_count">Consumer threads</label><input id="consumer_count" name="consumer_count" type="number" min="1"></div>
+            <div><label for="retry">Retries</label><input id="retry" name="retry" type="number" min="0"></div>
+          </div>
+          <label for="request_url_host">Request URL host</label>
+          <input id="request_url_host" name="request_url_host">
+        </details>
+
+        <div class="buttons">
+          <button type="submit" class="primary">Save</button>
+          <button type="button" id="testBtn">Test connection</button>
+        </div>
+      </form>
+      <div class="msg" id="formMsg" role="status"></div>
+    </section>
+  </div>
+
+  <div>
+    <section>
+      <h2>Connector</h2>
+      <div class="stats">
+        <div class="stat"><b id="sEvents">0</b><span>Events received</span></div>
+        <div class="stat"><b id="sLast">–</b><span>Last event</span></div>
+        <div class="stat"><b id="sUptime">–</b><span>Uptime</span></div>
+        <div class="stat"><b id="sFwd">Off</b><span>Forwarding</span></div>
+      </div>
+      <div class="buttons">
+        <button class="primary" id="startBtn">Start</button>
+        <button id="stopBtn">Stop</button>
+        <button id="restartBtn">Restart</button>
+        <button id="resetBtn" title="Delete cefconnector.db (saved offset)">Reset offset DB</button>
+      </div>
+      <div class="msg" id="ctlMsg" role="status"></div>
+    </section>
+
+    <section>
+      <div class="tabs" role="tablist">
+        <button class="active" data-tab="events" role="tab">Events</button>
+        <button data-tab="logs" role="tab">Connector log</button>
+      </div>
+      <div id="tab-events">
+        <div class="toolbar">
+          <input id="q" type="search" placeholder="Filter (IP, host, rule ID, country…)">
+          <label class="check" style="margin:0"><input type="checkbox" id="autoRefresh" checked> Auto refresh</label>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Time</th><th>Action</th><th>Client IP</th><th>Country</th><th>Method</th><th>Request</th><th>Status</th><th>Rules</th><th>Config</th></tr></thead>
+            <tbody id="events"></tbody>
+          </table>
+          <div class="empty" id="noEvents">No events yet. Save credentials and start the connector; events appear after the first pull.</div>
+        </div>
+      </div>
+      <div id="tab-logs" hidden><pre id="logs">Loading…</pre></div>
+    </section>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const form = $("settings");
+const expanded = new Set();
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  const data = await res.json().catch(() => ({ ok: false, message: "HTTP " + res.status }));
+  if (!res.ok && data.ok === undefined) data.ok = false;
+  return data;
+}
+function say(el, r) { el.textContent = r.message || ""; el.className = "msg " + (r.ok ? "ok" : "bad"); }
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function ago(ts) {
+  if (!ts) return "–";
+  const s = Math.max(0, Math.round(Date.now() / 1000 - ts));
+  if (s < 60) return s + "s ago"; if (s < 3600) return Math.round(s / 60) + "m ago";
+  return Math.round(s / 3600) + "h ago";
+}
+function dur(ts) {
+  if (!ts) return "–";
+  const s = Math.round(Date.now() / 1000 - ts), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+  return h ? `${h}h ${m}m` : `${m}m ${s % 60}s`;
+}
+
+async function loadSettings() {
+  const s = await api("/api/settings");
+  for (const [k, v] of Object.entries(s)) {
+    const el = form.elements[k]; if (!el) continue;
+    if (el.type === "checkbox") el.checked = !!v; else el.value = v ?? "";
+  }
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const body = {};
+  for (const el of form.elements) if (el.name) body[el.name] = el.type === "checkbox" ? el.checked : el.value;
+  const r = await api("/api/settings", { method: "POST", body: JSON.stringify(body) });
+  say($("formMsg"), r);
+  if (r.ok) loadSettings();
+});
+
+$("testBtn").onclick = async () => {
+  $("formMsg").textContent = "Testing (uses saved settings)…"; $("formMsg").className = "msg";
+  say($("formMsg"), await api("/api/test", { method: "POST" }));
+};
+
+$("parseEdgerc").onclick = () => {
+  const map = { host: "base_url", client_token: "client_token", client_secret: "client_secret", access_token: "access_token" };
+  let n = 0;
+  for (const line of $("edgerc").value.split(/\r?\n/)) {
+    const m = line.match(/^\s*(\w+)\s*=\s*(.+?)\s*$/);
+    if (m && map[m[1]]) { form.elements[map[m[1]]].value = m[2]; n++; }
+  }
+  say($("formMsg"), { ok: n > 0, message: n ? `Filled ${n} field(s). Add config ID(s) and Save.` : "No credential fields found" });
+};
+
+document.querySelectorAll("[data-ago]").forEach(b => b.onclick = () => {
+  form.elements.timebased.checked = true;
+  form.elements.timebased_from.value = Math.floor(Date.now() / 1000) - Number(b.dataset.ago) + 60;
+});
+
+for (const [id, path] of [["startBtn", "/api/start"], ["stopBtn", "/api/stop"], ["restartBtn", "/api/restart"], ["resetBtn", "/api/reset-db"]]) {
+  $(id).onclick = async () => { $(id).disabled = true; say($("ctlMsg"), await api(path, { method: "POST" })); $(id).disabled = false; refreshStatus(); };
+}
+
+async function refreshStatus() {
+  const s = await api("/api/status");
+  const pill = $("runPill");
+  if (s.running) { pill.textContent = "Running · pid " + s.pid; pill.className = "pill ok"; }
+  else if (s.last_exit !== null && s.last_exit !== undefined) { pill.textContent = "Exited (code " + s.last_exit + ")"; pill.className = "pill bad"; }
+  else { pill.textContent = "Stopped"; pill.className = "pill idle"; }
+  $("version").textContent = "CEF Connector " + (s.version || "");
+  $("sEvents").textContent = (s.total_events || 0).toLocaleString();
+  $("sLast").textContent = ago(s.last_event_at);
+  $("sUptime").textContent = s.running ? dur(s.started_at) : "–";
+  $("sFwd").textContent = s.forwarding || "Off";
+  $("startBtn").disabled = !!s.running; $("stopBtn").disabled = !s.running;
+}
+
+function fmtTime(e) {
+  const start = Number(e.ext?.start);
+  const d = start ? new Date(start > 1e12 ? start : start * 1000) : new Date(e.received * 1000);
+  return d.toLocaleString();
+}
+
+async function refreshEvents() {
+  const events = await api("/api/events?limit=500&q=" + encodeURIComponent($("q").value));
+  $("noEvents").hidden = events.length > 0;
+  $("events").innerHTML = events.map((e, i) => {
+    const x = e.ext || {};
+    const key = x.devicePayloadId || e.raw.slice(0, 120);
+    const act = x.act || e.eventClassId || "";
+    let html = `<tr class="ev" data-key="${esc(key)}">
+      <td>${esc(fmtTime(e))}</td><td class="act ${esc(act.toLowerCase())}">${esc(act)}</td>
+      <td>${esc(x.src || x.c6a2)}</td><td>${esc(x.AkamaiSiemCountry)}</td><td>${esc(x.requestMethod)}</td>
+      <td class="trunc" title="${esc(x.request)}">${esc(x.request)}</td><td>${esc(x.AkamaiSiemResponseStatus)}</td>
+      <td class="trunc" title="${esc(x.cs2)}">${esc(x.cs1)}</td><td>${esc(x.flexString1)}</td></tr>`;
+    if (expanded.has(key)) {
+      const rows = [["name", e.name], ["severity", e.severity], ...Object.entries(x)]
+        .filter(([, v]) => v !== "" && v !== undefined)
+        .map(([k, v]) => `<div>${esc(k)}</div><div>${esc(v)}</div>`).join("");
+      html += `<tr class="detail"><td colspan="9"><div class="kv">${rows}</div>
+        <h3>Raw CEF</h3><pre>${esc(e.raw)}</pre></td></tr>`;
+    }
+    return html;
+  }).join("");
+}
+
+$("events").addEventListener("click", (ev) => {
+  const tr = ev.target.closest("tr.ev"); if (!tr) return;
+  const k = tr.dataset.key; expanded.has(k) ? expanded.delete(k) : expanded.add(k);
+  refreshEvents();
+});
+let qTimer; $("q").addEventListener("input", () => { clearTimeout(qTimer); qTimer = setTimeout(refreshEvents, 250); });
+
+async function refreshLogs() {
+  const logs = await api("/api/connector-log");
+  const pre = $("logs"), atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 20;
+  pre.textContent = logs.length ? logs.map(l => `===== ${l.file} =====\n` + l.lines.join("\n")).join("\n\n") : "No connector logs yet.";
+  if (atBottom) pre.scrollTop = pre.scrollHeight;
+}
+
+let activeTab = "events";
+document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
+  activeTab = b.dataset.tab;
+  document.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("active", x === b));
+  $("tab-events").hidden = activeTab !== "events"; $("tab-logs").hidden = activeTab !== "logs";
+  activeTab === "logs" ? refreshLogs() : refreshEvents();
+});
+
+loadSettings(); refreshStatus(); refreshEvents();
+setInterval(() => {
+  refreshStatus();
+  if (!$("autoRefresh").checked) return;
+  activeTab === "logs" ? refreshLogs() : refreshEvents();
+}, 5000);
+</script>
+</body>
+</html>

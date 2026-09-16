@@ -1,0 +1,23 @@
+services:
+  siem-collector:
+    build: .
+    image: akamai-siem-collector:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"   # UI — change to "8000:8000" to expose beyond this host
+    environment:
+      UI_USERNAME: ${UI_USERNAME:-admin}
+      UI_PASSWORD: ${UI_PASSWORD:-}   # set to enable basic auth on the UI
+      JAVA_OPTS: ${JAVA_OPTS:--Xms256m -Xmx1024m}
+    volumes:
+      - siem-data:/data
+
+  # Optional test listener (Machine 2 in the guide). Enable forwarding in the UI
+  # with host "listener", port 8080, then: docker compose logs -f listener
+  listener:
+    build: ./listener
+    restart: unless-stopped
+    profiles: ["lab"]
+
+volumes:
+  siem-data:

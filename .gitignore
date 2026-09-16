@@ -1,0 +1,12 @@
+# Credentials and runtime data — never commit
+*.properties
+.edgerc
+.env
+data/
+logs/
+*.db
+settings.json
+state.json
+
+__pycache__/
+*.pyc
