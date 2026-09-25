@@ -10,6 +10,7 @@ in a container with a web UI where you:
 - view the CEF events it pulled (filterable, click a row for every field plus the raw CEF line)
 - optionally forward the same CEF stream to your SIEM or syslog listener over TCP/UDP
 - read `cefconnector.log` for troubleshooting
+- download ready-to-use `CEFConnector.properties` and `log4j2.xml` for a standalone Linux install
 
 ## How it works
 
@@ -61,6 +62,37 @@ In the UI, turn on forwarding with host `listener`, port `8080` and protocol `TC
 | Forward host / port / protocol | Extra log4j2 `Socket` appender |
 
 Saved settings take effect when the connector next starts, so use **Restart** after changing them.
+
+## Download the connector config files
+
+The **Connector config files** section of the dashboard has two buttons that build the files
+from the saved settings and download them:
+
+| File | Contents |
+|---|---|
+| `CEFConnector.properties` | Credentials, config ID(s) and every advanced setting, with Akamai's CEF header/extension mapping and comments unchanged |
+| `log4j2.xml` | `CEFHost` / `CEFPort` / `CEFProtocol` set to the forwarding host and port from the form (`127.0.0.1:514` if forwarding is off), and `log-path` set to `logs` |
+
+Both are written for running the connector **directly on a Linux host** as in the Akamai docs,
+not for this container. Drop them into the connector package's `config/` directory and run
+`./AkamaiCEFConnector.sh start`.
+
+`CEFConnector.properties` contains the client secret and tokens in clear text — `chmod 600` it,
+and never commit or email it.
+
+The same files can be fetched without the UI:
+
+```bash
+curl -fO http://localhost:8000/api/download/CEFConnector.properties \
+     -O http://localhost:8000/api/download/log4j2.xml
+```
+
+```powershell
+iwr http://localhost:8000/api/download/CEFConnector.properties -OutFile CEFConnector.properties
+iwr http://localhost:8000/api/download/log4j2.xml -OutFile log4j2.xml
+```
+
+Add `-u admin:<password>` (curl) or `-Credential (Get-Credential)` (PowerShell) if `UI_PASSWORD` is set.
 
 ## Data (volume `siem-data` → `/data`)
 
