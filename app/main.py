@@ -113,6 +113,19 @@ def events():
     return jsonify(manager.recent_events(request.args.get("q", ""), limit))
 
 
+@app.get("/api/cef-events")
+def cef_events():
+    """Raw CEF lines, newest first — what the connector sends to the SIEM."""
+    events = manager.recent_events(request.args.get("q", ""), 2000)
+    body = "\n".join(e["raw"] for e in events) + "\n"
+    if request.args.get("download"):
+        return Response(body, content_type="text/plain; charset=utf-8", headers={
+            "Content-Disposition": 'attachment; filename="cef-events.log"',
+            "Cache-Control": "no-store",
+        })
+    return Response(body, content_type="text/plain; charset=utf-8")
+
+
 @app.get("/api/connector-log")
 def connector_log():
     return jsonify(manager.connector_log())

@@ -8,6 +8,7 @@ in a container with a web UI where you:
 - test the credentials against the SIEM API
 - start, stop or restart the connector, and reset its offset DB (`cefconnector.db`)
 - view the CEF events it pulled (filterable, click a row for every field plus the raw CEF line)
+- view the raw CEF stream exactly as the SIEM receives it, and copy or download it
 - optionally forward the same CEF stream to your SIEM or syslog listener over TCP/UDP
 - read `cefconnector.log` for troubleshooting
 - download ready-to-use `CEFConnector.properties` and `log4j2.xml` for a standalone Linux install
@@ -101,7 +102,7 @@ Add `-u admin:<password>` (curl) or `-Credential (Get-Credential)` (PowerShell) 
 | `settings.json` | UI settings, including credentials (file mode 0600) |
 | `connector/config/` | Generated `CEFConnector.properties` and `log4j2.xml` |
 | `connector/work/cefconnector.db` | Saved offset |
-| `logs/cef-events.log` | Every CEF event received (rotates at 50 MB × 5) |
+| `logs/cef-events.log` | Every CEF event received (rotates at 50 MB × 5); the most recent lines reload into the dashboard after a restart |
 | `logs/cefconnector.log` | Connector log |
 
 If the connector was running when the container stopped, it starts again automatically.

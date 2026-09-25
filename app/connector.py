@@ -169,10 +169,26 @@ class ConnectorManager:
         handler.setFormatter(logging.Formatter("%(message)s"))
         self.event_log.addHandler(handler)
 
+        self._preload_events()
         self.capture = _CaptureServer(("127.0.0.1", CAPTURE_PORT), _CaptureHandler)
         self.capture.manager = self
         threading.Thread(target=self.capture.serve_forever, daemon=True).start()
         threading.Thread(target=self._watch, daemon=True).start()
+
+    def _preload_events(self):
+        """Refill the in-memory buffer from cef-events.log so a restart keeps history."""
+        path = os.path.join(LOG_DIR, "cef-events.log")
+        if not os.path.exists(path):
+            return
+        try:
+            with open(path, "rb") as f:
+                f.seek(max(0, os.path.getsize(path) - 4_000_000))
+                lines = f.read().decode("utf-8", "replace").splitlines()
+            for line in lines[-self.events.maxlen:]:
+                if line.strip():
+                    self.events.append(parse_cef(line))
+        except OSError:
+            pass
 
     def _detect_version(self):
         for name in os.listdir(os.path.join(CEF_HOME, "bin")):

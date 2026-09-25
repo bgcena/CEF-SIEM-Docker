@@ -68,6 +68,7 @@
   .kv div:nth-child(odd) { color: var(--muted); }
   .kv div { word-break: break-all; white-space: pre-wrap; }
   pre { background: var(--code); border: 1px solid var(--border); border-radius: 6px; padding: 10px; overflow: auto; max-height: 62vh; font-size: 12px; margin: 0; white-space: pre-wrap; word-break: break-all; }
+  #cef { white-space: pre; word-break: normal; line-height: 1.7; }
   .empty { padding: 30px; text-align: center; color: var(--muted); }
   .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
 </style>
@@ -173,6 +174,7 @@
     <section>
       <div class="tabs" role="tablist">
         <button class="active" data-tab="events" role="tab">Events</button>
+        <button data-tab="cef" role="tab">Raw CEF</button>
         <button data-tab="logs" role="tab">Connector log</button>
       </div>
       <div id="tab-events">
@@ -187,6 +189,15 @@
           </table>
           <div class="empty" id="noEvents">No events yet. Save credentials and start the connector; events appear after the first pull.</div>
         </div>
+      </div>
+      <div id="tab-cef" hidden>
+        <div class="toolbar">
+          <input id="cefQ" type="search" placeholder="Filter raw CEF lines">
+          <button type="button" id="copyCef">Copy all</button>
+          <a class="btn" href="/api/cef-events?download=1" download>Download .log</a>
+        </div>
+        <pre id="cef">Loading…</pre>
+        <div class="hint">Exactly what the connector sends to your SIEM, newest first. Full history: <code>/data/logs/cef-events.log</code>.</div>
       </div>
       <div id="tab-logs" hidden><pre id="logs">Loading…</pre></div>
     </section>
@@ -316,19 +327,35 @@ async function refreshLogs() {
   if (atBottom) pre.scrollTop = pre.scrollHeight;
 }
 
+async function refreshCef() {
+  const events = await api("/api/events?limit=500&q=" + encodeURIComponent($("cefQ").value));
+  $("cef").textContent = events.length ? events.map(e => e.raw).join("\n") : "No CEF events yet.";
+}
+
+$("copyCef").onclick = async () => {
+  try {
+    await navigator.clipboard.writeText($("cef").textContent);
+    say($("ctlMsg"), { ok: true, message: "Raw CEF copied to clipboard" });
+  } catch {
+    say($("ctlMsg"), { ok: false, message: "Clipboard blocked — select the text and copy manually" });
+  }
+};
+let cefTimer; $("cefQ").addEventListener("input", () => { clearTimeout(cefTimer); cefTimer = setTimeout(refreshCef, 250); });
+
+const refreshTab = { events: refreshEvents, cef: refreshCef, logs: refreshLogs };
 let activeTab = "events";
 document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
   activeTab = b.dataset.tab;
   document.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("active", x === b));
-  $("tab-events").hidden = activeTab !== "events"; $("tab-logs").hidden = activeTab !== "logs";
-  activeTab === "logs" ? refreshLogs() : refreshEvents();
+  for (const t of Object.keys(refreshTab)) $("tab-" + t).hidden = activeTab !== t;
+  refreshTab[activeTab]();
 });
 
 loadSettings(); refreshStatus(); refreshEvents();
 setInterval(() => {
   refreshStatus();
   if (!$("autoRefresh").checked) return;
-  activeTab === "logs" ? refreshLogs() : refreshEvents();
+  refreshTab[activeTab]();
 }, 5000);
 </script>
 </body>
