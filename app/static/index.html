@@ -41,6 +41,9 @@
   .buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   button { padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font: inherit; cursor: pointer; }
   button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  a.btn { padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); color: var(--text); text-decoration: none; }
+  a.btn:hover { background: var(--row-hover); }
+  code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
   button:disabled { opacity: .5; cursor: default; }
   .msg { margin-top: 10px; font-size: 13px; min-height: 1em; word-break: break-word; }
   .msg.ok { color: var(--ok); } .msg.bad { color: var(--bad); }
@@ -157,6 +160,14 @@
         <button id="resetBtn" title="Delete cefconnector.db (saved offset)">Reset offset DB</button>
       </div>
       <div class="msg" id="ctlMsg" role="status"></div>
+      <h3>Connector config files</h3>
+      <div class="buttons">
+        <a class="btn" href="/api/download/CEFConnector.properties" download>Download CEFConnector.properties</a>
+        <a class="btn" href="/api/download/log4j2.xml" download>Download log4j2.xml</a>
+      </div>
+      <div class="hint">Built from the saved settings, for running the connector directly on a Linux host.
+        <code>log4j2.xml</code> sends CEF events to the forwarding host/port above (127.0.0.1:514 if forwarding is off).
+        <strong>CEFConnector.properties contains your credentials in clear text</strong> — store it with <code>chmod 600</code>.</div>
     </section>
 
     <section>

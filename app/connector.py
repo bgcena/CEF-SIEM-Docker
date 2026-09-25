@@ -223,7 +223,7 @@ class ConnectorManager:
                 if not self.settings.get(f)]
 
     # ------------------------------------------------------------ rendering
-    def render_properties(self):
+    def build_properties(self):
         with open(os.path.join(CEF_HOME, "config", "CEFConnector.properties"), encoding="latin-1") as f:
             text = f.read()
         for key, prop in PROPERTY_MAP.items():
@@ -237,7 +237,25 @@ class ConnectorManager:
                 text = pattern.sub(lambda _: line, text, count=1)
             else:
                 text += "\n" + line + "\n"
-        _write_private(os.path.join(CONFIG_DIR, "CEFConnector.properties"), text, "latin-1")
+        return text
+
+    def render_properties(self):
+        _write_private(os.path.join(CONFIG_DIR, "CEFConnector.properties"),
+                       self.build_properties(), "latin-1")
+
+    def build_standalone_log4j(self):
+        """log4j2.xml for running the connector directly on a host: CEF events go
+        to the configured SIEM/listener instead of this container's UI receiver."""
+        with open(os.path.join(CEF_HOME, "config", "log4j2.xml"), encoding="utf-8") as f:
+            text = f.read()
+        s = self.settings
+        for name, value in (("log-path", "logs"),
+                            ("CEFHost", s["forward_host"] if s["forward_enabled"] else "127.0.0.1"),
+                            ("CEFPort", str(s["forward_port"]) if s["forward_enabled"] else "514"),
+                            ("CEFProtocol", s["forward_protocol"])):
+            text = re.sub(r'(<Property name="{}">)[^<]*(</Property>)'.format(name),
+                          lambda m, v=value: m.group(1) + v + m.group(2), text)
+        return text
 
     def render_log4j(self):
         tree = ET.parse(os.path.join(CEF_HOME, "config", "log4j2.xml"))

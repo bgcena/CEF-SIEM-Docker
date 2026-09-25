@@ -85,6 +85,23 @@ def reset_db():
     return jsonify(ok=ok, message=msg)
 
 
+@app.get("/api/download/<name>")
+def download(name):
+    """Config files for running the connector directly on a host (see README)."""
+    if manager.missing():
+        return jsonify(ok=False, message="Missing: " + ", ".join(manager.missing())), 400
+    if name == "CEFConnector.properties":
+        body, mime = manager.build_properties(), "text/plain; charset=iso-8859-1"
+    elif name == "log4j2.xml":
+        body, mime = manager.build_standalone_log4j(), "application/xml; charset=utf-8"
+    else:
+        return jsonify(ok=False, message="Unknown file"), 404
+    return Response(body, content_type=mime, headers={
+        "Content-Disposition": 'attachment; filename="{}"'.format(name),
+        "Cache-Control": "no-store",
+    })
+
+
 @app.get("/api/status")
 def status():
     return jsonify(manager.status())
